@@ -1,88 +1,42 @@
 #include <ros/ros.h>
 #include <nav_msgs/Odometry.h>
+#include <std_msgs/String.h>
 #include <geometry_msgs/Point.h>
 #include <visualization_msgs/Marker.h>
 #include <ctime>
 
-const double REQUIRED_DISTANCE = 0.3;
+const double PICKUP_X = -3.5;
+const double PICKUP_Y = 0.575;
 
-const double PICKUP_X = 5;
-const double PICKUP_Y = 5;
-
-const double DROPOFF_X = 0;
-const double DROPOFF_Y = 0;
-
-enum Status
-{
-    STATUS_MOVING_TO_PICKUP,
-    STATUS_READY_TO_PICKUP,
-    STATUS_PICKING_UP,
-    STATUS_MOVING_TO_DROPOFF,
-    STATUS_DONE
-};
+double robot_x = 0;
+double robot_y = 0;
 
 ros::Publisher marker_pub;
-
 visualization_msgs::Marker marker;
-Status status = STATUS_MOVING_TO_PICKUP;
-
-std::time_t pickup_zone_arrival_time = 0;
 
 void odometry_callback(const nav_msgs::Odometry::ConstPtr& odometry)
 {
-    double position_x = odometry->pose.pose.position.x;
-    double position_y = odometry->pose.pose.position.y;
+    robot_x = odometry->pose.pose.position.x;
+    robot_y = odometry->pose.pose.position.y;
+}
 
-    //ROS_INFO("%.4f %.4f", distance_from_pickup_2d, distance_from_dropoff_2d);
+void status_callback(std_msgs::String status)
+{
+    ROS_INFO("Received status: %s", status.data.c_str());
 
-    switch (status) {
-    case STATUS_MOVING_TO_PICKUP: {
-        double distance_from_pickup_2d = sqrt(pow(position_x - PICKUP_X, 2) +
-                                              pow(position_y - PICKUP_Y, 2));
-
-        if (distance_from_pickup_2d < REQUIRED_DISTANCE) {
-            ROS_INFO("Reached the pickup zone");
-            status = STATUS_READY_TO_PICKUP;
-            pickup_zone_arrival_time = std::time(0);
-        }
-        break;
-    }
-    case STATUS_READY_TO_PICKUP: {
+    if (status.data == "pickup")
+    {
         marker.action = visualization_msgs::Marker::DELETE;
         marker_pub.publish(marker);
-        status = STATUS_PICKING_UP;
-
-        break;
     }
-    case STATUS_PICKING_UP: {
-        if (std::time(0) - pickup_zone_arrival_time > 5)
-        {
-            ROS_INFO("Picked up the item");
-
-            status = STATUS_MOVING_TO_DROPOFF;
-        }
-        break;
-    }
-    case STATUS_MOVING_TO_DROPOFF: {
-        double distance_from_dropoff_2d = sqrt(pow(position_x - DROPOFF_X, 2) +
-                                               pow(position_y - DROPOFF_Y, 2));
-
-        if (distance_from_dropoff_2d < REQUIRED_DISTANCE)
-        {
-            ROS_INFO("Reached the drop-off zone");
-
-            // Publishing the marker at the drop-off zone
-            marker.id = 1;
-            marker.action = visualization_msgs::Marker::ADD;
-            marker.pose.position.x = DROPOFF_X;
-            marker.pose.position.y = DROPOFF_Y;
-            marker.pose.position.z = 0;
-            marker_pub.publish(marker);
-
-            status = STATUS_DONE;
-        }
-        break;
-    }
+    else if (status.data == "drop-off")
+    {
+        marker.id = 1;
+        marker.action = visualization_msgs::Marker::ADD;
+        marker.pose.position.x = robot_x;
+        marker.pose.position.y = robot_y;
+        marker.pose.position.z = 0;
+        marker_pub.publish(marker);
     }
 }
 
@@ -92,6 +46,7 @@ int main( int argc, char** argv )
   ros::NodeHandle n;
   marker_pub = n.advertise<visualization_msgs::Marker>("visualization_marker", 1);
   ros::Subscriber odom_sub = n.subscribe("odom", 1000, odometry_callback);
+  ros::Subscriber status_sub = n.subscribe("/pick_objects/status", 1000, status_callback);
 
   // Set the frame ID and timestamp.  See the TF tutorials for information on these.
   marker.header.frame_id = "map";

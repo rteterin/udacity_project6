@@ -3,11 +3,11 @@
 #include <actionlib/client/simple_action_client.h>
 #include <std_msgs/String.h>
 
-const double PICKUP_X = 5;
-const double PICKUP_Y = 5;
+const double PICKUP_X = -3.5;
+const double PICKUP_Y = 0.575;
 
-const double DROPOFF_X = 0;
-const double DROPOFF_Y = 0;
+const double DROPOFF_X = 3.37;
+const double DROPOFF_Y = 0.32;
 
 // Define a client for to send goal requests to the move_base server through a SimpleActionClient
 typedef actionlib::SimpleActionClient<move_base_msgs::MoveBaseAction> MoveBaseClient;
@@ -26,7 +26,7 @@ int main(int argc, char** argv){
     ROS_INFO("Waiting for the move_base action server to come up");
   }
 
-  ros::Publisher status_publisher = n.advertise<std_msgs::String>("status", 1000);
+  ros::Publisher status_publisher = n.advertise<std_msgs::String>("/pick_objects/status", 1000);
 
   move_base_msgs::MoveBaseGoal goal;
 
